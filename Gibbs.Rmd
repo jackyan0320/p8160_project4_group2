@@ -1,0 +1,220 @@
+---
+title: "Gibbs"
+author: "Jiayi Shen (js5354)"
+date: "5/8/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(data.table)
+library(tidyverse)
+library(invgamma)
+```
+
+# Data Cleaning
+```{r}
+dt = read.csv("hurrican356.csv")
+dt <- as.data.table(dt)
+
+dat.clean <- dt %>%
+    mutate(time = as.character(strptime(time, format = "(%y-%m-%d %H:%M:%S)"))) %>% 
+    rename(Speed = Wind.kt) %>%
+    arrange(ID, as.numeric(as.POSIXlt(time))) %>%
+    select(c("ID", "time", "Nature", "Latitude", "Longitude", "Speed")) %>%
+    mutate(Year = as.POSIXlt(time)$year) %>%
+    mutate(Yday = as.POSIXlt(time)$yday) %>%
+    group_by(ID) %>%
+    mutate(Time = as.numeric(as.POSIXlt(time) - as.POSIXlt(first(time))) / 3600 / 6) %>% select(-"time") %>%
+    mutate(SpeedPrev = lag(Speed)) %>%
+    mutate(DeltaLatitude = Latitude - lag(Latitude)) %>%
+    mutate(DeltaLongitude = Longitude - lag(Longitude)) %>%
+    mutate(DeltaSpeed = Speed - lag(Speed)) %>%
+    mutate(SpeedNext = lead(Speed)) %>%
+    #mutate(LatitudeNext = lead(Latitude)) %>%
+    #mutate(LongitudeNext = lead(Longitude)) %>%
+    ungroup() %>%
+    filter(!is.na(SpeedPrev) & !is.na(SpeedNext))
+
+```
+
+# Splitting into training (80%) and testing (20%)
+```{r}
+ID.uniq <- unique(dat.clean$ID)
+ID.training <- sample(ID.uniq, size = round(0.8 * length(ID.uniq))) idx.training <- which(dat.clean$ID %in% ID.training)
+idx.test <- which(!(dat.clean$ID %in% ID.training))
+```
+
+```{r}
+Y <- dat.clean %>% select(SpeedNext) %>% as.matrix()
+Z <- dat.clean %>% select(Speed) %>% as.matrix()
+
+Dummy <- function(dat, var) {
+  x <- unlist(dat[, var], use.names = FALSE) 
+  dict.x = unique(x)
+  dum <- outer(x, dict.x, "==") + 0
+  colnames(dum) <- dict.x 
+  dum <- as.data.frame(dum) 
+  return(dum)
+}
+
+ref.Nature <- "DS"
+dum.Nature <- Dummy(dat.clean, "Nature") %>% select(- ref.Nature) 
+colnames(dum.Nature) <- paste0("Nature", colnames(dum.Nature))
+
+X <- dat.clean %>%
+  select(c("Yday", "Year", "DeltaLatitude", "DeltaLongitude", "DeltaSpeed")) %>% 
+  bind_cols(dum.Nature)
+X <- cbind(1, as.matrix(X)) 
+colnames(X)[1] <- "(Intercept)" 
+
+```
+
+
+```{r}
+# RNormQuadForm <- function(A, b) { 
+#   R <- chol(A) 
+#   z <- rnorm(length(b)) 
+#   x <- as.vector(backsolve(R, z + backsolve(R, b, transpose = TRUE))) 
+#   return(x) 
+# }
+
+Gibbs <- function(len.chain, Y, X, Z) {
+  
+  n <- nrow(X) 
+  q <- 1 
+  p <- 10
+  
+  mu <- 0.5 
+  sigma <- 1 / sqrt(5)
+  
+  invgamma_para1 = 1
+  invgamma_para2 = 1
+
+  
+  RCondPostB <- function(Rho, sigma, B) { 
+    
+    for (k in 1:10){
+      Res <- Y - X %*% B - Z * Rho
+      mean_bk = sum(X[,k]*(Res + X[,k]*B[k])) / sum(X[,k]^2 + sigma^2/n)
+      sigma_bk = sqrt(1/sum((X[,k]^2 + sigma^2/n)/sigma^2))
+      B[k] = rnorm(1, mean = mean_bk, sd = sigma_bk)
+    }
+    return(B)
+  }
+  
+  RCondPostRho <- function(B, sigma) {
+    # Winv <- (1 / sigma^2) * diag(q) + ZtZ * Omega 
+    # v <- rowSums((ZtY - ZtX %*% B) * Omega) 
+    # Rho <- RNormQuadForm(Winv, v) 
+    # while (any(Rho < 0) || any(Rho > 1)) { 
+    #   Rho <- RNormQuadForm(Winv, v) 
+    # } 
+    # return(Rho)
+    mean_Rho = (sum(Z*(Y -X %*% B)) + 25*sigma^2/8)/(25*sigma^2 + sum(Z^2))
+    sigma_Rho = 1/(25+sum(Z^2)/sigma^2)
+    Rho_new = rnorm(1, mean = mean_Rho, sd = sigma_Rho)
+    while (Rho_new < 0 || Rho_new > 1){
+      Rho_new = rnorm(1, mean = mean_Rho, sd = sigma_Rho)
+    }
+    return(Rho_new)
+  }
+  
+  RCondPostSigma <- function(B, Rho) {
+  Res <- Y - X %*% B - Z * Rho
+  #Omega <- rWishart(1, n + d, chol2inv(chol(t(Res) %*% Res + Vinv)))[, , 1] 
+  sigma_sq <- rinvgamma(1, n + 2*invgamma_para1 + 1, invgamma_para2 + 0.5*sum(Res^2))
+  while (is.infinite(sigma_sq) || sigma_sq == 0){
+    sigma_sq <- rinvgamma(1, n + 2*invgamma_para1 + 1, invgamma_para2 + 0.5*sum(Res^2))
+  }
+  sigma_new = sqrt(sigma_sq)
+  return(sigma_new)
+  }
+  
+  LogLik <- function(sigma, B, Rho) {
+  Res <- Y - X %*% B - Z * Rho
+  log.lik <- - n * log(sigma*sqrt(2*pi)) - (1 / 2) * (sigma^(-2))* sum(Res^2) 
+  return(log.lik)
+  }
+  
+  sigma <- rep(NA, len.chain) 
+  B <- matrix(NA, nrow = len.chain, ncol = 10)
+  Rho <- rep(NA, len.chain)
+  log.lik <- rep(NA, len.chain)
+  
+  sigma[1] <- sqrt(rinvgamma(1, invgamma_para1, invgamma_para2))
+  B[1, ] <- rnorm(p * q)
+  Rho[1] <- runif(1)
+  log.lik[1] <- LogLik(sigma[1], B[1, ], Rho[1])
+  
+  for (k in 2 : len.chain) {
+    print(k)
+    B[k, ] <- RCondPostB(Rho[k-1], sigma[k-1], B[k-1, ]) 
+    Rho[k] <- RCondPostRho(B[k, ], sigma[k-1]) 
+    sigma[k] <- RCondPostSigma(B[k, ], Rho[k]) 
+    log.lik[k] <- LogLik(sigma[k], B[k, ], Rho[k])
+  }
+  return(list(sigma = sigma, B = B, Rho = Rho, log.lik = log.lik)) 
+}
+  
+```
+
+# Fitting
+```{r}
+len.chain <- 5000 
+len.burnin <- 1000
+
+ID.uniq <- unique(dat.clean$ID)
+set.seed(5)
+ID.training <- sample(ID.uniq, size = round(0.8 * length(ID.uniq))) 
+idx.training <- which(dat.clean$ID %in% ID.training)
+idx.test <- which(!(dat.clean$ID %in% ID.training))
+
+
+# pt <- proc.time()
+# fit <- Gibbs(len.chain, Y[idx.training, ], X[idx.training, ], Z[idx.training, ]) 
+# proc.time() - pt
+load("Gibbs.RData")
+```
+
+
+# Bayesian estimates
+```{r Bayesian-results}
+# B
+colnames(fit$B) <- colnames(X)
+B.postmean = colMeans(fit$B) 
+B.postmean
+apply( fit$B , 2 , quantile , probs = c(0.025, 0.975) , na.rm = TRUE )
+
+# Rho
+Rho.postmean = mean(fit$Rho)
+Rho.postmean
+quantile(fit$Rho, probs = c(0.025, 0.975), na.rm = TRUE)
+
+# sigma
+sigma.postmean = mean(fit$sigma)
+sigma.postmean
+quantile(fit$sigma, probs = c(0.025, 0.975), na.rm = TRUE)
+```
+
+Plotting MC
+```{r}
+par(mfrow = c(2, 2))
+for (k in 1:10){
+  plot(fit$B[,k], type = "l")
+}
+par(mfrow = c(1, 2))
+plot(fit$Rho, type = "l")
+plot(fit$sigma, type = "l")
+```
+
+# Predicting
+```{r}
+Y.test <- Y[idx.test, ]
+Y.test.pred <- X[idx.test, ] %*% B.postmean + Z[idx.test, ] * Rho.postmean
+mean((Y.test.pred - Y.test)^2)
+```
+
+
+
