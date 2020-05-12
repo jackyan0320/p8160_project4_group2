@@ -1,0 +1,198 @@
+---
+title: "Project 4: A Bayesian model for hurricane trajectories."
+author: "Jack Yan, Jiayi Shen, Siquan Wang"
+date: "5/12/2020"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2)
+library(data.table)
+library(tidyverse)
+library(invgamma)
+```
+
+# Introduction 
+
+# Hurrican Data
+hurrican356.csv collected the track data of 356 hurricanes in  the North Atlantic area since 1989. For all the storms, their location (longitude \& latitude) and maximum wind speed were recorded every 6 hours. The data includes the following variables 
+
+1. **ID**:  ID of the hurricans
+2. **Season**: In which \textbf{year} the hurricane occurred 
+3. **Month**: In which \textbf{month} the hurricane occurred 
+4. **Nature**:  Nature of the hurricane 
+  + ET: Extra Tropical
+  + DS: Disturbance
+  + NR: Not Rated
+  + SS: Sub Tropical
+  + TS: Tropical Storm
+5. **time**: dates and time of the record  
+6. **Latitude** and **Longitude**:  The location of  a hurricane check point 
+7. **Wind.kt**  Maximum wind speed (in Knot) at each check point 
+
+# Method 
+
+Let $t$ be time (in hours) since a hurricane began, and for each hurrican $i$, we denote $Y_{i}(t)$ to be the wind speed at time $t$. The following Baysian model was suggested.
+
+$$Y_{i,j}(t+6) =  \mu_{i,j}(t) +\rho_jY_{i,j}(t) + \epsilon_{i,j}(t)$$
+where $\mu_{i,j}(t)$ is the funtional mean, and the errors $(\epsilon_{i,1}(t),\epsilon_{i,2}(t),\epsilon_{i,3}(t))$ follows a multivariate normal distributions with mean zero and covariance matrix $\Sigma$, independent across $t$. We further assume that the mean functions $\mu_{i,j}(t)$ can be written as
+$$\mu_{i,j}(t) =  \beta_{0,j}+x_{i,1}(t)\beta_{1,j} +
+x_{i,2} \beta_{2,j} + x_{i,3}\beta_{3,j} +
+\sum_{k=1}^3\beta_{3+k,j}\Delta_{i,k}(t-6)
+$$ where
+$x_{i,1}(t)$, ranging from 0 to 365, is the day of year at time $t$, $x_{i,2}$ is the calenda year of the hurrican, and $x_{i,3}$ is the type of hurrican, 
+and
+$$\Delta_{i,k}(t-6) = Y_{i,k}(t) -Y_{i,k}(t-6),k=1,2,3$$
+are the change of latitude, longitude, and wind speed
+between $t-6$ and $t$.
+
+### Prior distributions
+
+We assume the following prior distributions  
+
+For $\boldsymbol{\beta}=(\beta_{k,j})_{k=0,...,6, j=1,2,3}$, we assume
+$\pi(\boldsymbol{\beta})$ is jointly normal with mean 0 and variance $diag(1, p)$. 
+
+We assume that $\pi(\rho_j)$ follows a trucated normal  $N_{[0,1]}(0.5, 1/5)$ 
+ 
+ $\pi(\sigma^2)$ follows a $Wishart (3, diag(0.1,3))$
+
+### Likelihood
+The log-likelihood of $Y(t+6)$ is 
+$$
+    l(Y(t+6) | \mathbf{X}, \mathbf{\beta}, \rho, Y(t)) = -n \log \left( \sigma \sqrt{2\pi} \right) - \sum_{i=1}^n \frac{1}{2 \sigma^2} \Big( Y_i (t+6) -  \mathbf{X}^T\mathbf{\beta}  - \rho Y_i(t) \Big)^2 
+$$
+
+### Posterior of $\beta$
+Since each $\beta_k$ is mutually-independent distributed, we can look at their posterior distribution individually. Note that $k = 0,1,2,...,10$ because there are five categories for $x_{i3}$. \\
+
+The prior of $\beta_k$ has the log-likelihood function: 
+$$
+\log \pi(\beta_k) = - \log(\sqrt{2\pi}) - \frac{1}{2} \beta_k^2
+$$
+
+The posterior of $\beta_k$ has the log-likelihood function: 
+\begin{align*}
+    \log \pi(\beta_k | Y(t+6), \mathbf{X}, \mathbf{\beta}_{-k}, \rho, Y(t)) &= \log \pi(\beta_k) +  l(Y(t+6) | \mathbf{X}, \mathbf{\beta}, \rho, Y(t)) \\
+    &\propto \text{const} - \frac{1}{2}\beta_k^2 - \sum_{i=1}^n \frac{1}{2\sigma^2} \Big[ \beta_k^2 x_{ik}^2 - 2 \beta_k x_{ik} \Big( Y_i(t+6) - \mathbf{X}_{-k}^T\mathbf{\beta}_{-k} - \rho Y_i(t) \Big)\Big] \\
+    &= \text{const} - \Big[ \beta_k^2 \Big\{ \sum_{i=1}^n \frac{1}{2\sigma^2} (x_{ik}^2 + \frac{\sigma^2}{n}) \Big\} - 2\beta_k \frac{1}{2\sigma^2} \Big\{ \sum_{i=1}^n x_{ik} \big[ Y_i(t+6) - \mathbf{X}_{-k}^T\mathbf{\beta}_{-k} - \rho Y_i(t) \big]  \Big\} \Big] \\
+    &= \text{const} - \frac{1}{2} \Big\{ \sum_{i=1}^n \frac{1}{\sigma^2} (x_{ik}^2 + \frac{\sigma^2}{n}) \Big\} \Big\{\beta_k -  \frac{\sum x_{ik} [ Y_i(t+6) - \mathbf{X}_{-k}^T\mathbf{\beta}_{-k} - \rho Y_i(t)] }{\sum (x_{ik}^2 + \frac{\sigma^2}{n})} \Big\}^2  
+\end{align*}
+
+Thus, the posterior of $\beta_k$ follows a normal distribution with 
+\begin{align*}
+    \mu_k &= \frac{\sum x_{ik} [ Y_i(t+6) - \mathbf{X}_{-k}^T\mathbf{\beta}_{-k} - \rho Y_i(t)] }{\sum (x_{ik}^2 + \frac{\sigma^2}{n})}  \\
+    \sigma_k^2  &= \Big\{ \sum_{i=1}^n \frac{1}{\sigma^2} (x_{ik}^2 + \frac{\sigma^2}{n}) \Big\}^{-1} 
+\end{align*}
+
+
+### Posterior of $\rho$
+The prior of $\rho$ has the log-likelihood function:
+$$
+\log \pi(\rho) = - \log(\sqrt{\frac{2\pi}{5}}) - \frac{25}{2} (\rho - \frac{1}{2})^2
+$$
+
+The posterior of $\rho$ is proportional to 
+\begin{align*}
+    &\text{const} - \frac{25}{2} (\rho - \frac{1}{2})^2 -  \sum_{i=1}^n \frac{1}{2 \sigma^2} \Big( Y_i (t+6) -  \mathbf{X}^T\mathbf{\beta}  - \rho Y_i(t) \Big)^2 \\
+    &= \text{const} - \frac{n}{2 \sigma^2} \Big( \frac{25 \sigma^2}{n} \rho^2 - \frac{25 \sigma^2}{4n} \rho \Big) - \sum_{i=1}^n \frac{1}{2 \sigma^2} \Big( \rho^2 Y_i(t)^2 - 2 \rho Y_i(t)[Y_i(t+6)-\mathbf{X}^T\mathbf{\beta} ] \Big) \\
+    &= \text{const} - (\frac{25}{2}+ \frac{1}{2\sigma^2}\sum Y_i(t)^2) \rho^2 + \frac{1}{\sigma^2}  \rho  \sum \Big\{ \Big( Y_i(t)[Y_i(t+6)-\mathbf{X}^T\mathbf{\beta} ] \Big) + \frac{25 \sigma^2}{8n} \Big\} \\
+    & = \text{const} - \frac{1}{2} \Big\{ 25 + \frac{1}{\sigma^2}\sum Y_i(t)^2\Big\} \Big\{ \rho - \frac{\frac{1}{\sigma^2} \sum \Big\{ \Big( Y_i(t)[Y_i(t+6)-\mathbf{X}^T\mathbf{\beta} ] \Big) + \frac{25 \sigma^2}{8n}  \Big\}}{ 25 + \frac{1}{\sigma^2}\sum Y_i(t)^2} \Big\}^2
+\end{align*}
+
+Thus, the posterior of $\rho$ follows a normal distribution with 
+\begin{align*}
+    \mu_{\rho} &= \frac{\frac{1}{\sigma^2} \sum \Big\{ \Big( Y_i(t)[Y_i(t+6)-\mathbf{X}^T\mathbf{\beta} ] \Big) + \frac{25 \sigma^2}{8n}  \Big\}}{ 25 + \frac{1}{\sigma^2}\sum Y_i(t)^2} \\
+    &= \frac{ \sum \Big( Y_i(t)[Y_i(t+6)-\mathbf{X}^T\mathbf{\beta} ] \Big) + \frac{25 \sigma^2}{8}  }{ 25 \sigma^2 + \sum Y_i(t)^2} \\
+    \sigma_{\rho}^2  &= \Big\{ 25 + \frac{1}{\sigma^2}\sum Y_i(t)^2 \Big\}^{-1} 
+\end{align*}
+
+### Posterior of $\sigma^2$
+
+The prior of $\sigma^2$ has the log-likelihood function:
+\begin{align*}
+    \log \pi(\sigma^2) &= \text{const} - ( \alpha + 1)\log \frac{1}{\sigma^2} + \frac{-\alpha'}{\sigma^2}  \\
+    &= \text{const} - 2(\alpha+1) \log (\sigma) - \alpha' \sigma^{-2} 
+\end{align*}
+
+The posterior of $\sigma^2$ is proportional to 
+\begin{align*}
+    & \text{const} - 2(\alpha+1) \log (\sigma) - \alpha' \sigma^{-2}
+    -n \log \left( \sigma \sqrt{2\pi} \right) - \sum_{i=1}^n \frac{1}{2 \sigma^2} \Big( Y_i (t+6) -  \mathbf{X}^T\mathbf{\beta}  - \rho Y_i(t) \Big)^2 \\
+    &= \text{const} - \Big( n+ 2(\alpha+1) \Big)\log (\sigma) - \sigma^{-2} \Big\{ \alpha' +  \sum_{i=1}^n \frac{1}{2} \Big( Y_i (t+6) -  \mathbf{X}^T\mathbf{\beta}  - \rho Y_i(t) \Big)^2 \Big\}
+\end{align*}
+ where $\alpha = \alpha' =0.001$. 
+ 
+ Thus, the posterior of $\rho$ follows an inverse-gamma distribution with 
+\begin{align*}
+    \alpha_{post} &= n + 2\alpha +1 \\
+    \alpha^{\prime}_{post} &=  \alpha' +  \sum_{i=1}^n \frac{1}{2} \Big( Y_i (t+6) -  \mathbf{X}^T\mathbf{\beta}  - \rho Y_i(t) \Big)^2 
+\end{align*}
+ 
+### Gibbs sampling algorithm
+Denote $\mathbf{\theta} = (\beta_0,\beta_1, ..., \beta_9, \rho, \sigma^2)$. We proceed as follows:  
+1. Begin with some initial values of $\mathbf{\theta}^{0}$.  
+2. Sample each component of the vector, $\mathbf{\theta}$, from the distribution of that component conditioned on all other components sampled so far. For example, for $k \ge 1$, Generate $\beta_0^{(k)}$ from $\pi(\beta_0 | \beta_1^{(k-1)}, ..., \beta_9^{(k-1)}, \rho^{(k-1)}, \sigma^{2(k-1)}, Y, \mathbf{X})$. Then generate $\beta_1^{(k)}$ from $\pi(\beta_1 | \beta_0^{(k)},\beta_2^{(k-1)}, ..., \beta_9^{(k-1)}, \rho^{(k-1)}, \sigma^{2(k-1)}, Y, \mathbf{X})$. 3. Repeat the above step $k$ times.  
+
+We will randomly select 80% hurricanes and applied the proposed Gibbs sampling algorithm to estiamte the posterior distributions of the model parameters. Then we will apply the model to track the remaining 20% hurricans, and evaluate model performance in terms of how well could predict and track these hurricanes.   
+
+# Results
+```{r, include=FALSE}
+load("Gibbs.RData")
+```
+
+### Parameter estimation of posterior distributions
+
+```{r, echo=FALSE}
+par(mfrow = c(2, 2))
+for (k in 1:10){
+  plot(fit$B[,k], type = "l")
+}
+#par(mfrow = c(1, 2))
+plot(fit$Rho, type = "l")
+plot(fit$sigma, type = "l")
+```
+
+The plots above shows the length of burn-in period and stationary stage of each Markov chains. On average, burn-in period is about 500 runs.  
+
+```{r, echo=FALSE}
+par(mfrow = c(2, 2))
+for (k in 1:10){
+  hist(fit$B[1000:5000,k], main = paste("beta_", k-1, sep = ""))
+}
+# par(mfrow = c(1, 2))
+hist(fit$Rho[1000:5000], main = "rho")
+hist(fit$sigma[1000:5000], main = "sigma")
+```
+
+The histograms above show the distribution of parameter values after each chain enters stationary stage.  
+
+```{r Bayesian-results, echo = FALSE}
+# B
+colnames(fit$B) <- colnames(X)
+B.postmean = colMeans(fit$B[500:5000,]) 
+B.CI = apply( fit$B , 2 , quantile , probs = c(0.025, 0.975) , na.rm = TRUE )
+
+# Rho
+Rho.postmean = mean(fit$Rho)
+Rho.CI = quantile(fit$Rho, probs = c(0.025, 0.975), na.rm = TRUE)
+
+# sigma
+sigma.postmean = mean(fit$sigma)
+sigma.CI = quantile(fit$sigma, probs = c(0.025, 0.975), na.rm = TRUE)
+
+posterior.table = tibble(parameter = c(colnames(fit$B), "Y(t)", "sigma"), 
+                            posterior.mean = c(B.postmean, Rho.postmean, sigma.postmean), 
+                            CrI.low = c(B.CI[1,], Rho.CI[1], sigma.CI[1]), 
+                            CrI.high = c(B.CI[2,], Rho.CI[2], sigma.CI[2]))
+knitr::kable(posterior.table)
+```
+
+The table above shows the estimated posterior mean of each parameter in the Bayesian model, with the associated 95% credibility intervals (CrI). According to this model, it seems that `DeltaSpeed`(change in wind speed) and `Y(t)` (the wind speed at current time point) are highly predictive of the wind speed at the next time point. More specifically, they are both positively associated with `Y(t+6)`, the wind speed after 6 hours. `Yday` (the day of a year at current time point) and `DeltaLatitude` (the change in latitude) also show significant association with the wind speed after 6 hours.   
+
+
+# Discussion
+
