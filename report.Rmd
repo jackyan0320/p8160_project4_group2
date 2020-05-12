@@ -193,6 +193,14 @@ knitr::kable(posterior.table)
 
 The table above shows the estimated posterior mean of each parameter in the Bayesian model, with the associated 95% credibility intervals (CrI). According to this model, it seems that `DeltaSpeed`(change in wind speed) and `Y(t)` (the wind speed at current time point) are highly predictive of the wind speed at the next time point. More specifically, they are both positively associated with `Y(t+6)`, the wind speed after 6 hours. `Yday` (the day of a year at current time point) and `DeltaLatitude` (the change in latitude) also show significant association with the wind speed after 6 hours.   
 
+### Prediction
+```{r, echo=FALSE}
+Y.test <- Y[idx.test, ]
+Y.test.pred <- X[idx.test, ] %*% B.postmean + Z[idx.test, ] * Rho.postmean
+#mean((Y.test.pred - Y.test)^2)
+```
+
+We used the remaining 20\% hurricans data to conduct predictions using our proposed model. The mean square error (MSE) is `r mean((Y.test.pred - Y.test)^2)`. 
 
 # Discussion
 
