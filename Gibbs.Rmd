@@ -73,13 +73,6 @@ colnames(X)[1] <- "(Intercept)"
 
 
 ```{r}
-# RNormQuadForm <- function(A, b) { 
-#   R <- chol(A) 
-#   z <- rnorm(length(b)) 
-#   x <- as.vector(backsolve(R, z + backsolve(R, b, transpose = TRUE))) 
-#   return(x) 
-# }
-
 Gibbs <- function(len.chain, Y, X, Z) {
   
   n <- nrow(X) 
