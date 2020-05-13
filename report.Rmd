@@ -17,6 +17,9 @@ library(invgamma)
 
 # Introduction 
 
+Predicting hurricane trajectories is an important task in meteorology. It is helpful to model the wind speed of a hurricane in a few hours, provided the current wind speed, latitude, longitude and other parameters of the hurricane. In this project, we aimed to estimate the distribution of parameters in a wind speed prediction model by bayesian approach. Starting with a pre-specified prior distribution, conditional posterior distributions of the parameters were derived. Gibbs sampler was then used to sample from the posterior distributions. This enabled us to estimate the posterior means and 95% credibility intervals of the parameters. 
+
+
 # Hurrican Data
 hurrican356.csv collected the track data of 356 hurricanes in  the North Atlantic area since 1989. For all the storms, their location (longitude \& latitude) and maximum wind speed were recorded every 6 hours. The data includes the following variables 
 
@@ -206,4 +209,4 @@ We used the remaining 20\% hurricans data to conduct predictions using our propo
 
 # Discussion
 
-Our Bayesian regression model and Gibbs sampling seem work well on our hurricane dataset and the predictors we got are having pretty high prediction powers. However, we could still further improve our modeling precedure by considering the following extensions of this project: Firstly we might consider using other MCMC methods like Hamiltonian Monte Carlo and compare its performance with Gibbs sampling. Secondly we might use some more informative priors and see how the final outputs will change. Thirdly we might use more complicated modeling techniques such as hiearchical modeling to account to heterscadesity among different subregions and always remember that is trade-off between model complexicity and computation efficacy/over-fitting.
+Our Bayesian regression model and Gibbs sampling seem to work well on the hurricane dataset and the predictors we got had pretty high prediction powers. However, we could still improve our modeling precedure by considering the following extensions of this project: First, we might consider using other MCMC methods such as Hamiltonian Monte Carlo and compare its performance with Gibbs sampling. Secondly, we might use some more informative priors and see how the final outputs will change. Lastly, we might use more complicated modeling techniques such as hiearchical modeling to account to heteroscadesity among different subregions and always remember there is trade-off between model complexicity and computation efficacy/over-fitting.
