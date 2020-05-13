@@ -133,9 +133,9 @@ The posterior of $\sigma^2$ is proportional to
 \end{align*}
  
 ### Gibbs sampling algorithm
-Denote $\mathbf{\theta} = (\beta_0,\beta_1, ..., \beta_9, \rho, \sigma^2)$. We proceed as follows:  
-1. Begin with some initial values of $\mathbf{\theta}^{0}$.  
-2. Sample each component of the vector, $\mathbf{\theta}$, from the distribution of that component conditioned on all other components sampled so far. For example, for $k \ge 1$, Generate $\beta_0^{(k)}$ from $\pi(\beta_0 | \beta_1^{(k-1)}, ..., \beta_9^{(k-1)}, \rho^{(k-1)}, \sigma^{2(k-1)}, Y, \mathbf{X})$. Then generate $\beta_1^{(k)}$ from $\pi(\beta_1 | \beta_0^{(k)},\beta_2^{(k-1)}, ..., \beta_9^{(k-1)}, \rho^{(k-1)}, \sigma^{2(k-1)}, Y, \mathbf{X})$. 3. Repeat the above step $k$ times.  
+Denote $\theta = (\beta_0,\beta_1, ..., \beta_9, \rho, \sigma^2)$. We proceed as follows:  
+1. Begin with some initial values of $\theta^{0}$.  
+2. Sample each component of the vector, $\theta$, from the distribution of that component conditioned on all other components sampled so far. For example, for $k \ge 1$, Generate $\beta_0^{(k)}$ from $\pi(\beta_0 | \beta_1^{(k-1)}, ..., \beta_9^{(k-1)}, \rho^{(k-1)}, \sigma^{2(k-1)}, Y, \mathbf{X})$. Then generate $\beta_1^{(k)}$ from $\pi(\beta_1 | \beta_0^{(k)},\beta_2^{(k-1)}, ..., \beta_9^{(k-1)}, \rho^{(k-1)}, \sigma^{2(k-1)}, Y, \mathbf{X})$. 3. Repeat the above step $k$ times.  
 
 We will randomly select 80% hurricanes and applied the proposed Gibbs sampling algorithm to estiamte the posterior distributions of the model parameters. Then we will apply the model to track the remaining 20% hurricans, and evaluate model performance in terms of how well could predict and track these hurricanes.   
 
