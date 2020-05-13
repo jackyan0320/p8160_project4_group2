@@ -33,6 +33,8 @@ hurrican356.csv collected the track data of 356 hurricanes in  the North Atlanti
 6. **Latitude** and **Longitude**:  The location of  a hurricane check point 
 7. **Wind.kt**  Maximum wind speed (in Knot) at each check point 
 
+In this project we are interested in studying 356 hurricanes in the North Atlantic area since 1989, especially about how they are formed and what predictors will be of high prediction power of the hurricane properties. We have several measuremnt on each hurrianc such as the time when it was formed, the nature of the hurricane , the location of a hurricane check point and the maximum wind speed (in Knot) at each check point. To increase the flexibility of our model, we planned to use Bayesian approaching for modeling the outcome of interest, which is the wind speed. By assuming relatively simple structure of priors, we could use Gibbs sampling in our model computation and the result will be pretty robust.
+
 # Method 
 
 Let $t$ be time (in hours) since a hurricane began, and for each hurrican $i$, we denote $Y_{i}(t)$ to be the wind speed at time $t$. The following Baysian model was suggested.
@@ -204,3 +206,4 @@ We used the remaining 20\% hurricans data to conduct predictions using our propo
 
 # Discussion
 
+Our Bayesian regression model and Gibbs sampling seem work well on our hurricane dataset and the predictors we got are having pretty high prediction powers. Howeverr, we could still further improve our modling precedurre by considering the following extensions of this project: Firstly we might consider using other MCMC methods like Hamiltonian Monte Carlo and compare its performance with Gibbs sampling. Secondly we might use some more informative priors and see how the final outputs will change. Thirdly we might use more complicated modeling techniques such as hiearchical modeling to account to hetrescadesity among different subregions and always remember that is trade-off between model complexicity and computation efficacy/over-fitting.
