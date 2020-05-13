@@ -42,7 +42,8 @@ dat.clean <- dt %>%
 # Splitting into training (80%) and testing (20%)
 ```{r}
 ID.uniq <- unique(dat.clean$ID)
-ID.training <- sample(ID.uniq, size = round(0.8 * length(ID.uniq))) idx.training <- which(dat.clean$ID %in% ID.training)
+ID.training <- sample(ID.uniq, size = round(0.8 * length(ID.uniq))) 
+idx.training <- which(dat.clean$ID %in% ID.training)
 idx.test <- which(!(dat.clean$ID %in% ID.training))
 ```
 
